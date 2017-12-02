@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
-#define MAX_PAGE 9
+#define TYPE_NUM 3
+#define MAX_PAGE 6
 
 enum type {
 	Integer,
@@ -16,14 +16,6 @@ enum state {
 	Used
 };
 
-typedef struct value {
-        union {
-			int i;
-			float f;
-			char c;
-        } as;
-} value;
-
 typedef struct page_info {
 	type t;
 	void* p;
@@ -35,6 +27,8 @@ void print_page_info(page_info* pages) {
 
 	for (i = 0; i < MAX_PAGE; i++) {
 		fprintf(stdout, "page[%d]: \n", i);
+		fprintf(stdout, "\tpointer: %p\n", pages[i].p);
+
 
 		switch (pages[i].t) {
 		case Integer:
@@ -57,14 +51,19 @@ void print_page_info(page_info* pages) {
 }
 
 int main(int argc, char** argv) {
-	int i;
+	int i, j;
 
 	page_info pages[MAX_PAGE];
 
 	void *start_address, *end_address;
-	size_t page_size;
+	size_t total_size;
+	size_t type_size[3] = {
+		sizeof(int),
+		sizeof(float),
+		sizeof(char),
+	};
 
-	page_size = sizeof(value);
+	total_size = type_size[0] + type_size[1] + type_size[2];
 	start_address = sbrk(0);
 
 	if (start_address == NULL) {
@@ -72,7 +71,7 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
-	end_address = sbrk(page_size * MAX_PAGE);
+	end_address = sbrk(total_size * MAX_PAGE);
 
 	if (end_address == NULL) {
 		fprintf(stderr, "Failed to get size of page_size * MAX_PAGE\n");
@@ -83,15 +82,18 @@ int main(int argc, char** argv) {
 	fprintf(stdout, "end_address: %p\n", end_address);
 
 	for (i = 0; i < MAX_PAGE; i++) {
-		pages[i].t = (type)(i % 3);
-		pages[i].p = start_address + (page_size * i);
+		size_t size_offset = 0;
+
+		for (j = 0; j < (i % TYPE_NUM); j++) {
+			size_offset += type_size[j];
+		}
+
+		pages[i].t = (type)(i % TYPE_NUM);
+		pages[i].p = start_address + (total_size * (i / TYPE_NUM)) + size_offset;
 		pages[i].state = Free;
 	}
 
 	print_page_info(pages);
-
-
-	fprintf(stdout, "\n\nTry allocate integer value 100 to pages[3]\n");
 
 	int* same_value = (int*)pages[3].p;
 	pages[3].state = Used;
